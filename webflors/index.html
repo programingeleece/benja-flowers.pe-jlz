@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flores amarillas para ti</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500&family=Caveat:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#0f2a1c;--bg2:#1d4a30;--soil:#24160e;--petal:#ffd23f;--petal2:#ffb703;--heart:#5a3311;--ink:#fff6cf;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:linear-gradient(#0f2a1c,#1d4a30 75%,#24160e);color:var(--ink);font-family:Fraunces,Georgia,serif;overflow:hidden;touch-action:manipulation}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:pointer}
+header{position:fixed;top:calc(env(safe-area-inset-top,0px) + 18px);left:0;right:0;text-align:center;pointer-events:none;padding:0 20px}
+h1{font-weight:500;font-size:clamp(1.5rem,5vw,2.4rem);margin:0 0 6px}
+#hint{font-size:1rem;opacity:.8;transition:opacity .6s}
+#count{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);font-size:.95rem;opacity:.75}
+button{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);font:inherit;font-size:.95rem;background:transparent;color:var(--ink);border:1px solid rgba(255,246,207,.5);border-radius:999px;padding:8px 16px;cursor:pointer}
+button:hover,button:focus-visible{background:rgba(255,210,63,.2);outline:2px solid var(--petal);outline-offset:2px}
+#note{position:fixed;left:50%;top:50%;width:min(88vw,420px);transform:translate(-50%,-46%) scale(.96);background:rgba(15,42,28,.88);border:1px solid rgba(255,210,63,.6);border-radius:18px;padding:26px 24px;text-align:center;opacity:0;pointer-events:none;transition:opacity .9s,transform .9s;backdrop-filter:blur(6px)}
+#note.on{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+#note p{font-family:Caveat,cursive;font-size:clamp(1.5rem,5.5vw,2rem);line-height:1.3;margin:0 0 10px}
+#note small{opacity:.7;cursor:pointer;text-decoration:underline}
+@media (prefers-color-scheme:light){:root:not([data-theme="light"]){--ink:#fff6cf}}
+</style>
+</head>
+<body>
+<header><h1 id="title">Estas flores son para ti</h1><div id="hint">Toca la tierra o el cielo para hacer crecer una flor</div></header>
+<canvas id="c" aria-label="Jardín de flores amarillas interactivo"></canvas>
+<div id="count">Flores: 0</div>
+<button id="clear" type="button">Empezar de nuevo</button>
+<div id="note" role="dialog" aria-live="polite">
+  <p id="msg">Cada flor es una razón por la que pienso en ti. Que tu día se llene de luz.</p>
+  <small id="close">Seguir plantando</small>
+</div>
+<script>
+// Personaliza aquí el nombre y el mensaje:
+var NOMBRE = " Emy ";
+var MENSAJE = "Cada flor saliente es de las razones por que mereces ca una de ellas ";
+
+var cv=document.getElementById('c'),cx=cv.getContext('2d'),W,H,dpr;
+var flowers=[],sparks=[],mouse={x:-999,y:-999},NEED=7,shown=false;
+var still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(NOMBRE){document.getElementById('title').textContent='Estas flores son para ti, '+NOMBRE}
+document.getElementById('msg').textContent=MENSAJE;
+
+function size(){dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',size);size();
+
+function plant(x,y){
+  var gy=H-Math.min(60,H*.08);
+  var top=Math.min(y,gy-90);
+  var bx=x+(Math.random()-.5)*60;
+  flowers.push({bx:bx,by:gy,x:x,y:top,r:22+Math.random()*20,n:10+Math.floor(Math.random()*5),t:0,ph:Math.random()*6.28,rot:Math.random()*6.28,c:Math.random()<.35?'#ffb703':'#ffd23f',lean:(Math.random()-.5)*50});
+  for(var i=0;i<14;i++)sparks.push({x:x,y:top,vx:(Math.random()-.5)*2.4,vy:-Math.random()*2-.4,l:1});
+  document.getElementById('count').textContent='Flores: '+flowers.length;
+  document.getElementById('hint').style.opacity=0;
+  if(flowers.length>=NEED&&!shown){shown=true;setTimeout(function(){document.getElementById('note').classList.add('on')},1400)}
+}
+function ease(t){return 1-Math.pow(1-t,3)}
+
+function draw(time){
+  cx.clearRect(0,0,W,H);
+  // tierra
+  var gy=H-Math.min(60,H*.08);
+  cx.fillStyle='#24160e';cx.fillRect(0,gy,W,H-gy);
+  flowers.forEach(function(f){
+    f.t=Math.min(1,f.t+.012);
+    var g=ease(Math.min(1,f.t*1.5)),b=ease(Math.max(0,(f.t-.55)/.45));
+    var d=Math.hypot(mouse.x-f.x,mouse.y-f.y);
+    var push=still?0:(d<140?(1-d/140)*(mouse.x<f.x?1:-1)*-14:0);
+    var sway=still?0:Math.sin(time/900+f.ph)*6+push;
+    var tx=f.bx+(f.x-f.bx)*g+f.lean*g*.3+sway*g,ty=f.by+(f.y-f.by)*g;
+    var mx=f.bx+f.lean*g,my=(f.by+ty)/2;
+    cx.strokeStyle='#3f8f4f';cx.lineWidth=4;cx.lineCap='round';
+    cx.beginPath();cx.moveTo(f.bx,f.by);cx.quadraticCurveTo(mx,my,tx,ty);cx.stroke();
+    // hoja
+    if(g>.5){cx.fillStyle='#3f8f4f';cx.beginPath();var lx=(f.bx+tx)/2+f.lean*.3,ly=f.by+(ty-f.by)*.55;
+      cx.ellipse(lx+12,ly,14,5,-.5,0,6.28);cx.fill()}
+    if(b>0){
+      var R=f.r*b;cx.save();cx.translate(tx,ty);cx.rotate(f.rot+(still?0:time/6000));
+      for(var i=0;i<f.n;i++){cx.save();cx.rotate(i*6.283/f.n);
+        cx.fillStyle=f.c;cx.beginPath();cx.ellipse(0,-R*.95,R*.28,R*.62,0,0,6.28);cx.fill();
+        cx.strokeStyle='rgba(90,51,17,.25)';cx.lineWidth=1;cx.stroke();cx.restore()}
+      cx.fillStyle='#5a3311';cx.beginPath();cx.arc(0,0,R*.42,0,6.28);cx.fill();
+      cx.fillStyle='#8a5a1f';cx.beginPath();cx.arc(-R*.1,-R*.1,R*.16,0,6.28);cx.fill();
+      cx.restore()}
+  });
+  sparks=sparks.filter(function(s){return s.l>0});
+  sparks.forEach(function(s){s.x+=s.vx;s.y+=s.vy;s.vy+=.01;s.l-=.012;cx.globalAlpha=Math.max(0,s.l);cx.fillStyle='#fff3b0';cx.beginPath();cx.arc(s.x,s.y,2.2,0,6.28);cx.fill()});
+  cx.globalAlpha=1;
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+cv.addEventListener('pointerdown',function(e){plant(e.clientX,e.clientY)});
+cv.addEventListener('pointermove',function(e){mouse.x=e.clientX;mouse.y=e.clientY});
+cv.addEventListener('pointerleave',function(){mouse.x=-999;mouse.y=-999});
+document.getElementById('close').onclick=function(){document.getElementById('note').classList.remove('on')};
+document.getElementById('clear').onclick=function(){flowers=[];sparks=[];shown=false;document.getElementById('count').textContent='Flores: 0';document.getElementById('note').classList.remove('on');document.getElementById('hint').style.opacity=.8};
+// Un primer girasol de bienvenida
+setTimeout(function(){plant(W/2,H*.5)},500);
+</script>
+</body>
+</html>
